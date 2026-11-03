@@ -1,6 +1,8 @@
 //#include "Image.h"
+#include <framework/trackball.h>
 #include "mesh.h"
 #include "texture.h"
+#include "camera/camera.h"
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
 #include <framework/disable_all_warnings.h>
@@ -25,8 +27,11 @@ class Application {
 public:
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
+        , m_camera {&m_window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
+        , m_trackball(&m_window, glm::radians(50.0f))
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
     {
+        m_camera.setUserInteraction(false);
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -73,12 +78,22 @@ public:
             m_window.updateInput();
 
             // Use ImGui for easy input/output of ints, floats, strings, etc...
-            ImGui::Begin("Window");
-            ImGui::InputInt("This is an integer input", &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
-            ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
-            ImGui::Checkbox("Use material if no texture", &m_useMaterial);
-            ImGui::End();
-
+            if (m_showUI) {
+                ImGui::SetNextWindowSize(ImVec2(350,150), ImGuiCond_FirstUseEver);
+                ImGui::Begin("Window");
+                ImGui::Text("Camera Mode");
+                if (ImGui::RadioButton(("Trackball"), &m_activeCamera, 0)) {
+                    m_camera.setUserInteraction(false);
+                }
+                ImGui::SameLine();
+                if (ImGui::RadioButton(("First-Person"), &m_activeCamera, 1)) {
+                    m_camera.setUserInteraction(true);
+                }
+                ImGui::InputInt("This is an integer input", &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
+                ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
+                ImGui::Checkbox("Use material if no texture", &m_useMaterial);
+                ImGui::End();
+            }
             // Clear the screen
             glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -86,6 +101,13 @@ public:
             // ...
             glEnable(GL_DEPTH_TEST);
 
+            if (m_activeCamera == 0) {
+                m_viewMatrix = m_trackball.viewMatrix();
+                m_projectionMatrix = m_trackball.projectionMatrix();
+            } else {
+                m_camera.updateInput();
+                m_viewMatrix = m_camera.viewMatrix();
+            }
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
             // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
             // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
@@ -111,14 +133,19 @@ public:
 
             // Processes input and swaps the window buffer
             m_window.swapBuffers();
+
         }
     }
+
 
     // In here you can handle key presses
     // key - Integer that corresponds to numbers in https://www.glfw.org/docs/latest/group__keys.html
     // mods - Any modifier keys pressed, like shift or control
     void onKeyPressed(int key, int mods)
     {
+        if (key == '\\') {
+            m_showUI = !m_showUI;
+        }
         std::cout << "Key pressed: " << key << std::endl;
     }
 
@@ -154,6 +181,10 @@ public:
 
 private:
     Window m_window;
+    Camera m_camera;
+    Trackball m_trackball;
+    int m_activeCamera = 0;
+    bool m_showUI = true;
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
