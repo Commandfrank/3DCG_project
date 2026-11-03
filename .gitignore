@@ -21,6 +21,7 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 CMakeLists.txt.user
+CMakeUserPresets.json
 CompileCommands.json
 compile_commands.json
 CTestTestfile.cmake
@@ -52,7 +53,7 @@ conaninfo.txt
 vcpkg_installed/
 
 _deps/
-
+.cache/
 
 *.gcov
 *.gcda
@@ -61,7 +62,6 @@ _deps/
 *.profdata
 coverage/
 Testing/
-
 
 .DS_Store
 Thumbs.db
