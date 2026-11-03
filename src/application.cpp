@@ -1,6 +1,8 @@
 //#include "Image.h"
 #include "mesh.h"
 #include "texture.h"
+#include "objects/PrimitiveFactory.h"
+
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
 #include <framework/disable_all_warnings.h>
@@ -42,6 +44,22 @@ public:
         });
 
         m_meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/dragon.obj");
+
+        Mesh cubeMesh = PrimitiveFactory::createCube();
+        Mesh cylinderMesh = PrimitiveFactory::createCylinder();
+        Mesh sphereMesh = PrimitiveFactory::createSphere();
+        m_meshes.push_back(GPUMesh(cubeMesh));
+        m_meshes.push_back(GPUMesh(cylinderMesh));
+        m_meshes.push_back(GPUMesh(sphereMesh));
+
+        // Store transformation matrices for each shape
+    // Cube: scale 0.3 and position at x = -0.8
+        m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(-2.7f, 0.0f, 0.0f)));
+        // Cylinder: scale 0.3 and position at x = 0.0 (center)
+        m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(0.0f, 0.0f, 2.7f)));
+        // Sphere: scale 0.3 and position at x = 0.8
+        m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(2.7f, 0.0f, 0.0f)));
+
 
         try {
             ShaderBuilder defaultBuilder;
@@ -86,18 +104,24 @@ public:
             // ...
             glEnable(GL_DEPTH_TEST);
 
-            const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
-            // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
-            // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
-            const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
+            for (size_t i = 0; i < m_meshes.size(); ++i) {
+                glm::mat4 modelMatrix;
+                
+                // First mesh is the dragon - use default model matrix
+                if (i == 0) modelMatrix = m_modelMatrix;
+                else modelMatrix = m_meshTransforms[i - 1];
 
-            for (GPUMesh& mesh : m_meshes) {
+                const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * modelMatrix;
+                // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
+                // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
+                const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(modelMatrix));
+
                 m_defaultShader.bind();
                 glUniformMatrix4fv(m_defaultShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
                 //Uncomment this line when you use the modelMatrix (or fragmentPosition)
-                //glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(m_modelMatrix));
+                //glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
                 glUniformMatrix3fv(m_defaultShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
-                if (mesh.hasTextureCoords()) {
+                if (m_meshes[i].hasTextureCoords()) {
                     m_texture.bind(GL_TEXTURE0);
                     glUniform1i(m_defaultShader.getUniformLocation("colorMap"), 0);
                     glUniform1i(m_defaultShader.getUniformLocation("hasTexCoords"), GL_TRUE);
@@ -106,7 +130,7 @@ public:
                     glUniform1i(m_defaultShader.getUniformLocation("hasTexCoords"), GL_FALSE);
                     glUniform1i(m_defaultShader.getUniformLocation("useMaterial"), m_useMaterial);
                 }
-                mesh.draw(m_defaultShader);
+                m_meshes[i].draw(m_defaultShader);
             }
 
             // Processes input and swaps the window buffer
@@ -160,6 +184,7 @@ private:
     Shader m_shadowShader;
 
     std::vector<GPUMesh> m_meshes;
+    std::vector<glm::mat4> m_meshTransforms;
     Texture m_texture;
     bool m_useMaterial { true };
 
