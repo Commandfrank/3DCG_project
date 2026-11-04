@@ -128,6 +128,7 @@ public:
                 if (ImGui::RadioButton(("First-Person"), &m_activeCamera, 1)) {
                     m_camera.setUserInteraction(true);
                 }
+                ImGui::Checkbox("Bezier Movements", &bezierMove);
                 ImGui::InputInt("This is an integer input", &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
                 ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
                 ImGui::Checkbox("Use material if no texture", &m_useMaterial);
@@ -152,7 +153,7 @@ public:
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
 
 
-            customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
+            customerController.update(*customer, *cashier, bezierMove, timeInSeconds, deltaTime);
             
             //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
             cashier->draw(m_defaultShader, mvpMatrix);
@@ -267,7 +268,8 @@ private:
     std::vector<glm::mat4> m_meshTransforms;
     std::vector<glm::vec4> m_meshColors;
     Texture m_texture;
-    bool m_useMaterial { true };
+    bool m_useMaterial{ true };
+    bool bezierMove { false };
 
     // Projection and view matrices for you to fill in and use
     glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);

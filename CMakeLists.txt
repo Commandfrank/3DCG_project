@@ -18,6 +18,7 @@ add_executable(Master_TechDemo
 	"src/objects/Human.h"
 	"src/objects/Customer.h"
 	"src/objects/Customer.cpp"
+	"src/objects/BezierPath.h"
 	"src/objects/PrimitiveFactory.cpp"	
 	"src/objects/PrimitiveFactory.h"
 	"src/objects/GasStation.cpp"
