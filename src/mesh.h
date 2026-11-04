@@ -20,9 +20,9 @@ struct GPUMaterial {
     GPUMaterial(const Material& material);
 
     alignas(16) glm::vec3 kd{ 1.0f };
-	alignas(16) glm::vec3 ks{ 0.0f };
-	float shininess{ 1.0f };
-	float transparency{ 1.0f };
+    alignas(16) glm::vec3 ks{ 0.0f };
+    float shininess{ 1.0f };
+    float transparency{ 1.0f };
 };
 
 class GPUMesh {
@@ -53,10 +53,10 @@ private:
 private:
     static constexpr GLuint INVALID = 0xFFFFFFFF;
 
-    GLsizei m_numIndices { 0 };
-    bool m_hasTextureCoords { false };
-    GLuint m_ibo { INVALID };
-    GLuint m_vbo { INVALID };
-    GLuint m_vao { INVALID };
-    GLuint m_uboMaterial { INVALID };
+    GLsizei m_numIndices{ 0 };
+    bool m_hasTextureCoords{ false };
+    GLuint m_ibo{ INVALID };
+    GLuint m_vbo{ INVALID };
+    GLuint m_vao{ INVALID };
+    GLuint m_uboMaterial{ INVALID };
 };

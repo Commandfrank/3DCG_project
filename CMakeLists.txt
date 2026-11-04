@@ -14,6 +14,13 @@ add_executable(Master_TechDemo
     "src/texture.cpp"
 	"src/mesh.cpp"
 	"src/camera/camera.cpp"
+	"src/objects/cashier.cpp"
+	"src/objects/PrimitiveFactory.cpp"	
+	"src/objects/PrimitiveFactory.h"
+	"src/Mesh.cpp"
+	"src/Mesh.h"
+
+
 )
 
 target_compile_definitions(Master_TechDemo PRIVATE RESOURCE_ROOT="${CMAKE_CURRENT_LIST_DIR}/")

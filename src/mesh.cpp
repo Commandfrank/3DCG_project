@@ -11,7 +11,8 @@ GPUMaterial::GPUMaterial(const Material& material) :
     ks(material.ks),
     shininess(material.shininess),
     transparency(material.transparency)
-{}
+{
+}
 
 GPUMesh::GPUMesh(const Mesh& cpuMesh)
 {
@@ -79,7 +80,7 @@ std::vector<GPUMesh> GPUMesh::loadMeshGPU(std::filesystem::path filePath, bool n
     std::vector<Mesh> subMeshes = loadMesh(filePath, { .normalizeVertexPositions = normalize });
     std::vector<GPUMesh> gpuMeshes;
     for (const Mesh& mesh : subMeshes) { gpuMeshes.emplace_back(mesh); }
-    
+
     return gpuMeshes;
 }
 
@@ -93,7 +94,7 @@ void GPUMesh::draw(const Shader& drawingShader)
     // Bind material data uniform (we assume that the uniform buffer objects is always called 'Material')
     // Yes, we could define the binding inside the shader itself, but that would break on OpenGL versions below 4.2
     drawingShader.bindUniformBlock("Material", 0, m_uboMaterial);
-    
+
     // Draw the mesh's triangles
     glBindVertexArray(m_vao);
     glDrawElements(GL_TRIANGLES, m_numIndices, GL_UNSIGNED_INT, nullptr);
