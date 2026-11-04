@@ -20,27 +20,37 @@ namespace GasStation {
         outTransforms.push_back(floorModel);
         outColors.push_back(glm::vec4(0.2f, 0.2f, 0.2f, 1.0f));
 
+
         // back wall
         glm::mat4 backWall = glm::translate(shopBase, glm::vec3(0.0f, 2.5f, -4.9f));
         backWall = glm::scale(backWall, glm::vec3(10.0f, 5.0f, 0.2f));
         outMeshes.push_back(GPUMesh(cubeMesh));
         outTransforms.push_back(backWall);
+        outColors.push_back(glm::vec4(1.0f)); // placeholder for brick
         // outColors.push_back(glm::vec4(0.8f, 0.3f, 0.3f, 1.0f)); // red
-        outColors.push_back(glm::vec4(0.9f, 0.9f, 0.9f, 1.0f));
 
         // right wall
         glm::mat4 rightWall = glm::translate(shopBase, glm::vec3(4.9f, 2.5f, 0.0f));
         rightWall = glm::scale(rightWall, glm::vec3(0.2f, 5.0f, 10.0f));
         outMeshes.push_back(GPUMesh(cubeMesh));
         outTransforms.push_back(rightWall);
-        outColors.push_back(glm::vec4(0.9f, 0.9f, 0.9f, 1.0f));
+        outColors.push_back(glm::vec4(1.0f)); // placeholder for brick
+        // outColors.push_back(glm::vec4(0.9f, 0.9f, 0.9f, 1.0f));
 
-        // front wall (Lower half)
+        // front wall
         glm::mat4 frontWall = glm::translate(shopBase, glm::vec3(0.0f, 2.5f, 4.9f));
         frontWall = glm::scale(frontWall, glm::vec3(10.0f, 5.0f, 0.2f));
         outMeshes.push_back(GPUMesh(cubeMesh));
         outTransforms.push_back(frontWall);
-        outColors.push_back(glm::vec4(0.9f, 0.9f, 0.9f, 1.0f));
+        outColors.push_back(glm::vec4(1.0f)); // placeholder for brick
+        // outColors.push_back(glm::vec4(0.9f, 0.9f, 0.9f, 1.0f));
+
+        // seethrough roof
+        glm::mat4 roof = glm::translate(shopBase, glm::vec3(0.0f, 5.0f, 0.0f));
+        roof = glm::scale(roof, glm::vec3(10.0f, 0.1f, 10.0f));
+        outMeshes.push_back(GPUMesh(cubeMesh));
+        outTransforms.push_back(roof);
+        outColors.push_back(glm::vec4(1.0f));
 
         // checkout counter
         glm::mat4 counter = glm::translate(shopBase, glm::vec3(-2.4f, 0.75f, -2.0f));
@@ -48,7 +58,6 @@ namespace GasStation {
         outMeshes.push_back(GPUMesh(cubeMesh));
         outTransforms.push_back(counter);
         outColors.push_back(glm::vec4(0.6f, 0.4f, 0.2f, 1.0f));
-
 
         // DOOR FRAME
         glm::vec4 frameColor = glm::vec4(0.15f, 0.15f, 0.15f, 1.0f);
@@ -74,7 +83,7 @@ namespace GasStation {
         outTransforms.push_back(frameTop);
         outColors.push_back(frameColor);
 
-        // Door Handle
+        // door handle
         glm::mat4 handle = glm::translate(shopBase, glm::vec3(-4.7f, 1.75f, 0.7f));
         handle = glm::scale(handle, glm::vec3(0.15f, 0.3f, 0.08f));
         outMeshes.push_back(GPUMesh(cubeMesh));
@@ -161,12 +170,12 @@ namespace GasStation {
         outTransforms.push_back(leftWall);
         outColors.push_back(glm::vec4(0.5f, 0.8f, 0.9f, 0.3f));
 
-        // seethrough roof
-        glm::mat4 roof = glm::translate(shopBase, glm::vec3(0.0f, 5.0f, 0.0f));
-        roof = glm::scale(roof, glm::vec3(10.0f, 0.1f, 10.0f));
-        outMeshes.push_back(GPUMesh(cubeMesh));
-        outTransforms.push_back(roof);
-        outColors.push_back(glm::vec4(0.5f, 0.7f, 1.0f, 0.3f));
+        // // seethrough roof
+        // glm::mat4 roof = glm::translate(shopBase, glm::vec3(0.0f, 5.0f, 0.0f));
+        // roof = glm::scale(roof, glm::vec3(10.0f, 0.1f, 10.0f));
+        // outMeshes.push_back(GPUMesh(cubeMesh));
+        // outTransforms.push_back(roof);
+        // outColors.push_back(glm::vec4(0.5f, 0.7f, 1.0f, 0.3f));
 
     }
 }
