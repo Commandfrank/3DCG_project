@@ -6,7 +6,8 @@
 #include "camera/camera.h"
 #include "objects/PrimitiveFactory.h"
 #include "objects/GasStation.h"
-#include "objects/Cashier.h"
+#include "objects/Human.h"
+#include "objects/Customer.h"
 
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
@@ -30,15 +31,22 @@ DISABLE_WARNINGS_POP()
 
 class Application {
 public:
-    std::unique_ptr<Cashier> cashier;
+    std::unique_ptr<Human> cashier;
+    std::unique_ptr<Human> customer;
+    Customer customerController;
+
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
         , m_camera {&m_window, glm::vec3(0.0f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
         , m_trackball(&m_window, glm::radians(50.0f), 18.0f, glm::radians(35.0f), glm::radians(45.0f))
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
     {
-        cashier = std::make_unique<Cashier>();
+        cashier = std::make_unique<Human>();
+        cashier->setPosition(glm::vec3(-3.8f, 1.45f, -3.0f));
+        customer = std::make_unique<Human>();
+        customer->setPosition(glm::vec3(-7.5f, 1.45f, 0.0f));
         m_camera.setUserInteraction(false);
+
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -98,13 +106,15 @@ public:
 
     void update()
     {
+        float lastFrameTime = static_cast<float>(glfwGetTime());
         int dummyInteger = 0; // Initialized to 0
         while (!m_window.shouldClose()) {
             // This is your game loop
             // Put your real-time logic and rendering in here
             m_window.updateInput();
-
             float timeInSeconds = static_cast<float>(glfwGetTime());
+            float deltaTime = timeInSeconds - lastFrameTime;
+            lastFrameTime = timeInSeconds;
 
             // Use ImGui for easy input/output of ints, floats, strings, etc...
             if (m_showUI) {
@@ -139,14 +149,20 @@ public:
                 m_camera.updateInput();
                 m_viewMatrix = m_camera.viewMatrix();
             }
-
-
-            // const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
 
-            //cashier->walk(timeInSeconds, 1.0f);
-            cashier->waveHand(timeInSeconds);
+
+            customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
+            
+            //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
             cashier->draw(m_defaultShader, mvpMatrix);
+            customer->draw(m_defaultShader, mvpMatrix);
+
+
+
+
+
+
             // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
             // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
             // const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
