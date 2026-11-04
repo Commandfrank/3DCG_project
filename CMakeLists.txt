@@ -25,6 +25,10 @@ add_executable(Master_TechDemo
 
 
 )
+target_include_directories(Master_TechDemo PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/src
+		${CMAKE_CURRENT_SOURCE_DIR}/framework/include
+)
 
 target_compile_definitions(Master_TechDemo PRIVATE RESOURCE_ROOT="${CMAKE_CURRENT_LIST_DIR}/")
 target_compile_features(Master_TechDemo PRIVATE cxx_std_20)

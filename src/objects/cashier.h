@@ -11,7 +11,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glad/glad.h>
 #include <framework/shader.h>
-#include "..\Mesh.h"
+#include "Mesh.h"
 #include "PrimitiveFactory.h"
 
 class GPUMesh;
