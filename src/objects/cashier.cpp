@@ -22,7 +22,7 @@ void Cashier::buildHierarchy() {
     //TORSO root 
     torsoNode = std::make_shared<BodyParts>();
     torsoNode-> gpuMesh = gpuCube.get();    
-    torsoNode-> position = glm::vec3(0.0f, 1.2f, 0.0f); // Base position above ground
+    torsoNode-> position = glm::vec3(0.0f, 1.45f, 0.0f); // Base position above ground
     torsoNode-> scale = glm::vec3(0.6f, 0.8f, 0.3f);    // Torso dimensions (W, H, D)
     torsoNode-> meshOffset = glm::vec3(0.0f, 0.0f, 0.0f); // Centered on torso root
 

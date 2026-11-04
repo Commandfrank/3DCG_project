@@ -1,6 +1,6 @@
 #pragma once
 
-#include "/Users/karolplandowski/CLionProjects/3DCG_project/src/mesh.h"
+#include "..\Mesh.h"
 #include <framework/mesh.h>
 #include <vector>
 #include <framework/disable_all_warnings.h>
