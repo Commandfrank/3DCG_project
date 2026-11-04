@@ -36,6 +36,7 @@ public:
         , m_camera {&m_window, glm::vec3(0.0f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
         , m_trackball(&m_window, glm::radians(50.0f), 18.0f, glm::radians(35.0f), glm::radians(45.0f))
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
+        , m_sunMesh(PrimitiveFactory::createSphere())
     {
         cashier = std::make_unique<Cashier>();
         m_camera.setUserInteraction(false);
@@ -86,6 +87,27 @@ public:
             shadowBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/shadow_frag.glsl");
             m_shadowShader = shadowBuilder.build();
 
+            ShaderBuilder colorBuilder;
+            colorBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
+            colorBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/color_frag.glsl");
+            m_colorShader = colorBuilder.build();
+
+            ShaderBuilder brickBuilder;
+            brickBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
+            brickBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/brick_frag.glsl");
+            m_brickShader = brickBuilder.build();
+
+            ShaderBuilder textureBuilder;
+            textureBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
+            textureBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/texture_frag.glsl");
+            m_textureShader = textureBuilder.build();
+
+            // ShaderBuilder woodBuilder;
+            // woodBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
+            // woodBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/wood_frag.glsl");
+            // m_woodShader = woodBuilder.build();
+            //
+            //
             // Any new shaders can be added below in similar fashion.
             // ==> Don't forget to reconfigure CMake when you do!
             //     Visual Studio: PROJECT => Generate Cache for ComputerGraphics
@@ -105,6 +127,17 @@ public:
             m_window.updateInput();
 
             float timeInSeconds = static_cast<float>(glfwGetTime());
+
+            // --- Sun Position & Day/Night Animation ---
+            float orbitSpeed = timeInSeconds * 0.5f;
+            float orbitRadius = 15.0f;
+            m_sunPosition = glm::vec3(std::sin(orbitSpeed) * orbitRadius, std::cos(orbitSpeed) * orbitRadius, 0.0f);
+
+            if (m_sunPosition.y > 0.0f) {
+                m_sunColor = glm::vec3(1.0f, 0.95f, 0.8f); // Warm daytime sun
+            } else {
+                m_sunColor = glm::vec3(0.1f, 0.2f, 0.4f); // Cool night sky
+            }
 
             // Use ImGui for easy input/output of ints, floats, strings, etc...
             if (m_showUI) {
@@ -152,41 +185,81 @@ public:
             // const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
             for (size_t i = 0; i < m_meshes.size(); ++i) {
                 glm::mat4 modelMatrix = m_modelMatrix * m_meshTransforms[i];
-                
-                // First mesh is the dragon - use default model matrix
-                // if (i == 0) modelMatrix = m_modelMatrix;
-                // else modelMatrix = m_meshTransforms[i - 1];
-
                 const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * modelMatrix;
-                // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
-                // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
                 const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(modelMatrix));
 
-                m_defaultShader.bind();
-                glUniformMatrix4fv(m_defaultShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+                Shader* currentShader;
+
+                if (i >= 1 && i <= 4) {
+                    currentShader = &m_brickShader;
+                } else {
+                    currentShader = &m_colorShader;
+                }
+
+                currentShader->bind();
+                glUniformMatrix4fv(currentShader->getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
                 //Uncomment this line when you use the modelMatrix (or fragmentPosition)
                 //glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
-                glUniformMatrix3fv(m_defaultShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
+                glUniformMatrix3fv(currentShader->getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
 
-                GLint colorLoc = m_defaultShader.getUniformLocation( "baseColor");
-                if (colorLoc != -1 && i < m_meshColors.size()) {
-                    glUniform4fv(colorLoc, 1, glm::value_ptr(m_meshColors[i]));
-                    glUniform1i(m_defaultShader.getUniformLocation("useBaseColor"), GL_TRUE);
+                if (currentShader == &m_colorShader) {
+                    glUniform3fv(currentShader->getUniformLocation("cameraPos"), 1, glm::value_ptr(m_camera.cameraPos()));
+                    glUniform3fv(currentShader->getUniformLocation("sunPos"), 1, glm::value_ptr(m_sunPosition));
+                    glUniform3fv(currentShader->getUniformLocation("sunColor"), 1, glm::value_ptr(m_sunColor));
+
+                    if (i < m_meshColors.size()) {
+                        glUniform4fv(currentShader->getUniformLocation("baseColor"), 1, glm::value_ptr(m_meshColors[i]));
+                    }
+                }
+                // GLint camLoc = currentShader->getUniformLocation("cameraPos");
+                // if (camLoc != -1) glUniform3fv(camLoc, 1, glm::value_ptr(m_camera.cameraPos()));
+                // GLint sunLoc = currentShader->getUniformLocation("sunPos");
+                // if (sunLoc != -1) glUniform3fv(sunLoc, 1, glm::value_ptr(m_sunPosition));
+                // GLint sunCol = currentShader->getUniformLocation("sunColor");
+                // if (sunCol != -1) glUniform3fv(sunCol, 1, glm::value_ptr(m_sunColor));
+                // if (i < m_meshColors.size() && currentShader != &m_brickShader) {
+                //     glUniform4fv(currentShader->getUniformLocation("baseColor"), 1, glm::value_ptr(m_meshColors[i]));
+                // }
+
+                // if (m_meshes[i].hasTextureCoords()) {
+                //     m_texture.bind(GL_TEXTURE0);
+                //     glUniform1i(m_defaultShader.getUniformLocation("colorMap"), 0);
+                //     glUniform1i(m_defaultShader.getUniformLocation("hasTexCoords"), GL_TRUE);
+                //     glUniform1i(m_defaultShader.getUniformLocation("useMaterial"), GL_FALSE);
+                // } else {
+                //     glUniform1i(m_defaultShader.getUniformLocation("hasTexCoords"), GL_FALSE);
+                //     glUniform1i(m_defaultShader.getUniformLocation("useMaterial"), m_useMaterial);
+                // }
+
+                bool isTransparent = {i < m_meshColors.size() && m_meshColors[i].a < 0.99f};
+                if (isTransparent) {
+                    glDepthMask(GL_FALSE);
                 } else {
-                    glUniform1i(m_defaultShader.getUniformLocation("useBaseColor"), GL_FALSE);
+                    glDepthMask(GL_TRUE);
                 }
 
-                if (m_meshes[i].hasTextureCoords()) {
-                    m_texture.bind(GL_TEXTURE0);
-                    glUniform1i(m_defaultShader.getUniformLocation("colorMap"), 0);
-                    glUniform1i(m_defaultShader.getUniformLocation("hasTexCoords"), GL_TRUE);
-                    glUniform1i(m_defaultShader.getUniformLocation("useMaterial"), GL_FALSE);
-                } else {
-                    glUniform1i(m_defaultShader.getUniformLocation("hasTexCoords"), GL_FALSE);
-                    glUniform1i(m_defaultShader.getUniformLocation("useMaterial"), m_useMaterial);
-                }
-                m_meshes[i].draw(m_defaultShader);
+                m_meshes[i].draw(*currentShader);
             }
+            glDepthMask(GL_TRUE);
+            // Sun
+            glm::mat4 sunModelMatrix = glm::translate(glm::mat4(1.0f), m_sunPosition);
+            sunModelMatrix = glm::scale(sunModelMatrix, glm::vec3(1.5f));
+
+            const glm::mat4 sunMvpMatrix = m_projectionMatrix * m_viewMatrix * sunModelMatrix;
+            const glm::mat3 sunNormalMatrix = glm::inverseTranspose(glm::mat3(sunModelMatrix));
+
+            m_colorShader.bind();
+            glUniformMatrix4fv(m_colorShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(sunMvpMatrix));
+            glUniformMatrix3fv(m_colorShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(sunNormalMatrix));
+
+            glUniform3fv(m_colorShader.getUniformLocation("cameraPos"), 1, glm::value_ptr(m_camera.cameraPos()));
+            glUniform3fv(m_colorShader.getUniformLocation("sunPos"), 1, glm::value_ptr(m_sunPosition));
+            glUniform3fv(m_colorShader.getUniformLocation("sunColor"), 1, glm::value_ptr(m_sunColor));
+
+            glm::vec4 sunDrawColor = glm::vec4(m_sunColor, 1.0f);
+            glUniform4fv(m_colorShader.getUniformLocation("baseColor"), 1, glm::value_ptr(sunDrawColor));
+
+            m_sunMesh.draw(m_colorShader);
 
             // Processes input and swaps the window buffer
             m_window.swapBuffers();
@@ -246,6 +319,10 @@ private:
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
     Shader m_shadowShader;
+    Shader m_colorShader;
+    Shader m_brickShader;
+    Shader m_textureShader;
+    // Shader m_woodShader;
 
     std::vector<GPUMesh> m_meshes;
     std::vector<glm::mat4> m_meshTransforms;
@@ -257,6 +334,10 @@ private:
     glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
     glm::mat4 m_viewMatrix = glm::lookAt(glm::vec3(-1, 1, -1), glm::vec3(0), glm::vec3(0, 1, 0));
     glm::mat4 m_modelMatrix { 1.0f };
+
+    GPUMesh m_sunMesh;
+    glm::vec3 m_sunPosition;
+    glm::vec3 m_sunColor;
 };
 
 int main()
