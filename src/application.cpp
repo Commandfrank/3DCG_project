@@ -31,8 +31,8 @@ class Application {
 public:
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
-        , m_camera {&m_window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
-        , m_trackball(&m_window, glm::radians(50.0f))
+        , m_camera {&m_window, glm::vec3(0.0f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
+        , m_trackball(&m_window, glm::radians(50.0f), 18.0f, glm::radians(35.0f), glm::radians(45.0f))
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
     {
         m_camera.setUserInteraction(false);
@@ -52,15 +52,15 @@ public:
 
         m_meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/dragon.obj");
 
-        Mesh cubeMesh = PrimitiveFactory::createCube();
-        Mesh cylinderMesh = PrimitiveFactory::createCylinder();
-        Mesh sphereMesh = PrimitiveFactory::createSphere();
-        m_meshes.push_back(GPUMesh(cubeMesh));
-        m_meshes.push_back(GPUMesh(cylinderMesh));
-        m_meshes.push_back(GPUMesh(sphereMesh));
+        // Mesh cubeMesh = PrimitiveFactory::createCube();
+        // Mesh cylinderMesh = PrimitiveFactory::createCylinder();
+        // Mesh sphereMesh = PrimitiveFactory::createSphere();
+        // m_meshes.push_back(GPUMesh(cubeMesh));
+        // m_meshes.push_back(GPUMesh(cylinderMesh));
+        // m_meshes.push_back(GPUMesh(sphereMesh));
 
         // Store transformation matrices for each shape
-    // Cube: scale 0.3 and position at x = -0.8
+        // Cube: scale 0.3 and position at x = -0.8
         m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(-2.7f, 0.0f, 0.0f)));
         // Cylinder: scale 0.3 and position at x = 0.0 (center)
         m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(0.0f, 0.0f, 2.7f)));
