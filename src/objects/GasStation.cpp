@@ -53,8 +53,8 @@ namespace GasStation {
         outColors.push_back(glm::vec4(1.0f));
 
         // checkout counter
-        glm::mat4 counter = glm::translate(shopBase, glm::vec3(-2.4f, 0.75f, -2.0f));
-        counter = glm::scale(counter, glm::vec3(4.5f, 1.5f, 1.0f));
+        glm::mat4 counter = glm::translate(shopBase, glm::vec3(-2.9f, 0.75f, -2.0f));
+        counter = glm::scale(counter, glm::vec3(3.5f, 1.5f, 1.0f));
         outMeshes.push_back(GPUMesh(cubeMesh));
         outTransforms.push_back(counter);
         outColors.push_back(glm::vec4(0.6f, 0.4f, 0.2f, 1.0f));

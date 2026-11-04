@@ -37,7 +37,7 @@ public:
 
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
-        , m_camera {&m_window, glm::vec3(0.0f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
+        , m_camera {&m_window, glm::vec3(-3.6f, 3.35f, -3.2f), -glm::vec3(-3.6f, 3.55f, -3.2f) }  // Default camera position for now
         , m_trackball(&m_window, glm::radians(50.0f), 18.0f, glm::radians(35.0f), glm::radians(45.0f))
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
         , m_sunMesh(PrimitiveFactory::createSphere())
@@ -196,23 +196,12 @@ public:
                 m_viewMatrix = m_camera.viewMatrix();
             }
 
+            customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
+
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
 
 
             customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
-            
-            //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
-            cashier->draw(m_defaultShader, mvpMatrix);
-            customer->draw(m_defaultShader, mvpMatrix);
-
-
-
-
-
-
-            // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
-            // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
-            // const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
 
             // shadow mapping setup
             glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 30.0f);
@@ -313,6 +302,13 @@ public:
                 m_meshes[i].draw(*currentShader);
             }
             glDepthMask(GL_TRUE);
+            //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
+            m_defaultShader.bind();
+
+            const glm::mat4 humanMvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
+            cashier->draw(m_defaultShader, mvpMatrix);
+            customer->draw(m_defaultShader, mvpMatrix);
+
             // Sun
             glm::mat4 sunModelMatrix = glm::translate(glm::mat4(1.0f), m_sunPosition);
             sunModelMatrix = glm::scale(sunModelMatrix, glm::vec3(1.5f));
