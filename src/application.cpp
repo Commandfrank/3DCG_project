@@ -1,9 +1,11 @@
 //#include "Image.h"
 #include <framework/trackball.h>
 #include "mesh.h"
+
 #include "texture.h"
 #include "camera/camera.h"
 #include "objects/PrimitiveFactory.h"
+#include "objects/GasStation.h"
 
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
@@ -65,6 +67,9 @@ public:
         // Sphere: scale 0.3 and position at x = 0.8
         m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(2.7f, 0.0f, 0.0f)));
 
+        m_meshes.clear();
+        m_meshTransforms.clear();
+        GasStation::build(m_meshes, m_meshTransforms);
 
         try {
             ShaderBuilder defaultBuilder;
@@ -126,16 +131,18 @@ public:
                 m_camera.updateInput();
                 m_viewMatrix = m_camera.viewMatrix();
             }
-            const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
+
+
+            // const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
             // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
             // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
-            const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
+            // const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
             for (size_t i = 0; i < m_meshes.size(); ++i) {
-                glm::mat4 modelMatrix;
+                glm::mat4 modelMatrix = m_modelMatrix * m_meshTransforms[i];
                 
                 // First mesh is the dragon - use default model matrix
-                if (i == 0) modelMatrix = m_modelMatrix;
-                else modelMatrix = m_meshTransforms[i - 1];
+                // if (i == 0) modelMatrix = m_modelMatrix;
+                // else modelMatrix = m_meshTransforms[i - 1];
 
                 const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * modelMatrix;
                 // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
