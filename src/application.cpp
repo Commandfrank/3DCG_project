@@ -39,9 +39,10 @@ public:
 
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
-        , m_camera {&m_window, glm::vec3(0.0f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
+        , m_camera {&m_window, glm::vec3(-3.6f, 3.35f, -3.2f), -glm::vec3(-3.6f, 3.55f, -3.2f) }  // Default camera position for now
         , m_trackball(&m_window, glm::radians(50.0f), 18.0f, glm::radians(35.0f), glm::radians(45.0f))
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
+        , m_sunMesh(PrimitiveFactory::createSphere())
     {
         cashier = std::make_unique<Human>();
         cashier->setPosition(glm::vec3(-3.8f, 1.45f, -3.0f));
@@ -67,6 +68,30 @@ public:
         });
 
         m_meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/dragon.obj");
+
+        // --- Initialize Shadow Map Framebuffer ---
+        glGenFramebuffers(1, &m_shadowFramebuffer);
+        glGenTextures(1, &m_shadowTex);
+
+        glBindTexture(GL_TEXTURE_2D, m_shadowTex);
+        // Use depth component to store depth values from the light's perspective
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, SHADOWTEX_WIDTH, SHADOWTEX_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        // Clamp to border ensures areas outside the shadow map are fully lit
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, m_shadowFramebuffer);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_shadowTex, 0);
+
+        // Tell OpenGL we are only storing depth, no color
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Mesh cubeMesh = PrimitiveFactory::createCube();
         // Mesh cylinderMesh = PrimitiveFactory::createCylinder();
@@ -108,6 +133,20 @@ public:
             mirrorBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/reflection_vert.glsl");
             mirrorBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/reflection_frag.glsl");
             m_mirrorShader = mirrorBuilder.build();
+            ShaderBuilder colorBuilder;
+            colorBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
+            colorBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/color_frag.glsl");
+            m_colorShader = colorBuilder.build();
+
+            ShaderBuilder brickBuilder;
+            brickBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
+            brickBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/brick_frag.glsl");
+            m_brickShader = brickBuilder.build();
+
+            ShaderBuilder textureBuilder;
+            textureBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
+            textureBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/texture_frag.glsl");
+            m_textureShader = textureBuilder.build();
 
         } catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
@@ -126,7 +165,16 @@ public:
             float deltaTime = timeInSeconds - lastFrameTime;
             lastFrameTime = timeInSeconds;
 
-            // Use ImGui for easy input/output of ints, floats, strings, etc...
+            float orbitSpeed = timeInSeconds * 0.5f;
+            float orbitRadius = 15.0f;
+            m_sunPosition = glm::vec3(std::sin(orbitSpeed) * orbitRadius, std::cos(orbitSpeed) * orbitRadius, 1.0f); // straight orbit
+
+            if (m_sunPosition.y > 0.0f) {
+                m_sunColor = glm::vec3(1.0f, 0.95f, 0.8f); // Warm daytime sun
+            } else {
+                m_sunColor = glm::vec3(0.1f, 0.2f, 0.4f); // Cool night sky
+            }
+
             if (m_showUI) {
                 ImGui::SetNextWindowSize(ImVec2(350,150), ImGuiCond_FirstUseEver);
                 ImGui::Begin("Window");
@@ -139,16 +187,18 @@ public:
                     m_camera.setUserInteraction(true);
                 }
                 ImGui::Checkbox("Bezier Movements", &bezierMove);
+                ImGui::Separator();
+                ImGui::Checkbox("Enable Sun (Directional Light)", &m_enableSun);
+                ImGui::Checkbox("Enable Interior Lights (Point Lights)", &m_enableInteriorLights);
+
                 ImGui::InputInt("This is an integer input", &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
                 ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
                 ImGui::Checkbox("Use material if no texture", &m_useMaterial);
                 ImGui::End();
             }
-            // Clear the screen
             glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // ...
             glEnable(GL_DEPTH_TEST);
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -160,6 +210,9 @@ public:
                 m_camera.updateInput();
                 m_viewMatrix = m_camera.viewMatrix();
             }
+
+            customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
+
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
             glm::vec3 cameraPosition = glm::vec3(glm::inverse(m_viewMatrix)[3]);
 
@@ -170,50 +223,134 @@ public:
             cashier->draw(m_defaultShader, mvpMatrix);
             customer->draw(m_defaultShader, mvpMatrix);
             if (m_mirror) m_mirror->draw(m_mirrorShader, mvpMatrix, cameraPosition);
+            customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
 
+            // shadow mapping setup
+            glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 30.0f);
+            glm::mat4 lightView = glm::lookAt(m_sunPosition, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::mat4 lightVP = lightProjection * lightView;
 
+            // Pass 1: Render Shadow Map (Depth from Sun)
+            m_shadowShader.bind();
+            glBindFramebuffer(GL_FRAMEBUFFER, m_shadowFramebuffer);
+            glViewport(0, 0, SHADOWTEX_WIDTH, SHADOWTEX_HEIGHT);
+            glClear(GL_DEPTH_BUFFER_BIT); // Only clear depth
 
+            for (size_t i = 0; i < m_meshes.size(); ++i) {
+                bool isTransparent = (i < m_meshColors.size() && m_meshColors[i].a < 0.99f);
+                if (isTransparent) continue;
 
+                glm::mat4 modelMatrix = m_modelMatrix * m_meshTransforms[i];
+                glm::mat4 lightMVP = lightVP * modelMatrix;
 
-            // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
-            // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
-            // const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
+                glUniformMatrix4fv(m_shadowShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(lightMVP));
+                m_meshes[i].draw(m_shadowShader);
+            }
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            // Pass 2: Render Main Scene from Camera
+            glm::ivec2 windowSize = m_window.getWindowSize();
+            glViewport(0, 0, windowSize.x, windowSize.y);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, m_shadowTex);
+            glActiveTexture(GL_TEXTURE0);
+
             for (size_t i = 0; i < m_meshes.size(); ++i) {
                 glm::mat4 modelMatrix = m_modelMatrix * m_meshTransforms[i];
-                
-                // First mesh is the dragon - use default model matrix
-                // if (i == 0) modelMatrix = m_modelMatrix;
-                // else modelMatrix = m_meshTransforms[i - 1];
-
                 const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * modelMatrix;
-                // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
-                // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
                 const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(modelMatrix));
 
-                m_defaultShader.bind();
-                glUniformMatrix4fv(m_defaultShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
-                //Uncomment this line when you use the modelMatrix (or fragmentPosition)
-                //glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
-                glUniformMatrix3fv(m_defaultShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
+                glm::mat4 lightMVP = lightVP * modelMatrix;
 
-                GLint colorLoc = m_defaultShader.getUniformLocation( "baseColor");
-                if (colorLoc != -1 && i < m_meshColors.size()) {
-                    glUniform4fv(colorLoc, 1, glm::value_ptr(m_meshColors[i]));
-                    glUniform1i(m_defaultShader.getUniformLocation("useBaseColor"), GL_TRUE);
+                Shader* currentShader;
+
+                if (i >= 1 && i <= 4) {
+                    currentShader = &m_brickShader;
                 } else {
-                    glUniform1i(m_defaultShader.getUniformLocation("useBaseColor"), GL_FALSE);
+                    currentShader = &m_colorShader;
                 }
 
-                if (m_meshes[i].hasTextureCoords()) {
-                    m_texture.bind(GL_TEXTURE0);
-                    glUniform1i(m_defaultShader.getUniformLocation("colorMap"), 0);
-                    glUniform1i(m_defaultShader.getUniformLocation("hasTexCoords"), GL_TRUE);
-                    glUniform1i(m_defaultShader.getUniformLocation("useMaterial"), GL_FALSE);
-                } else {
-                    glUniform1i(m_defaultShader.getUniformLocation("hasTexCoords"), GL_FALSE);
-                    glUniform1i(m_defaultShader.getUniformLocation("useMaterial"), m_useMaterial);
+                currentShader->bind();
+                glUniformMatrix4fv(currentShader->getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+                glUniformMatrix3fv(currentShader->getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
+                glUniformMatrix4fv(currentShader->getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
+                glUniformMatrix4fv(currentShader->getUniformLocation("lightMVP"), 1, GL_FALSE, glm::value_ptr(lightMVP));
+                glUniform1i(currentShader->getUniformLocation("texShadow"), 1); // Slot 1
+
+                glUniform3fv(currentShader->getUniformLocation("cameraPos"), 1, glm::value_ptr(m_camera.cameraPos()));
+                glUniform3fv(currentShader->getUniformLocation("sunPos"), 1, glm::value_ptr(m_sunPosition));
+                glUniform3fv(currentShader->getUniformLocation("sunColor"), 1, glm::value_ptr(m_sunColor));
+
+                glUniform1i(currentShader->getUniformLocation("enableSun"), m_enableSun ? 1 : 0);
+                glUniform1i(currentShader->getUniformLocation("enableInteriorLights"), m_enableInteriorLights ? 1 : 0);
+
+                glUniform3fv(currentShader->getUniformLocation("pointLightPositions"), 1, glm::value_ptr(m_pointLightPositions[0]));
+                glUniform3fv(currentShader->getUniformLocation("pointLightColors"), 1, glm::value_ptr(m_pointLightColors[0]));
+                glUniform3fv(currentShader->getUniformLocation("spotlightDirections"), 1, glm::value_ptr(m_spotlightDirections[0]));
+
+                if (currentShader == &m_colorShader && i < m_meshColors.size()) {
+                    glUniform4fv(currentShader->getUniformLocation("baseColor"), 1, glm::value_ptr(m_meshColors[i]));
                 }
-                m_meshes[i].draw(m_defaultShader);
+
+
+                bool isMetal = false;
+                float roughness = 0.5f;
+                bool isTransparent = (i < m_meshColors.size() && m_meshColors[i].a < 0.99f);
+
+                if (i == 8) {
+                    isMetal = true;
+                    roughness = 0.2f;
+                } else if (i == 4) {
+                    isMetal = false;
+                    roughness = 0.6f;
+                } else if (isTransparent) {
+                    isMetal = false;
+                    roughness = 0.05f;
+                } else if (currentShader == &m_brickShader) {
+                    isMetal = false;
+                    roughness = 0.5f;
+                }
+
+                glUniform1f(currentShader->getUniformLocation("isMetal"), isMetal ? 1.0f : 0.0f);
+                glUniform1f(currentShader->getUniformLocation("roughness"), roughness);
+
+                if (isTransparent) {
+                    glDepthMask(GL_FALSE);
+                } else {
+                    glDepthMask(GL_TRUE);
+                }
+                m_meshes[i].draw(*currentShader);
+            }
+            glDepthMask(GL_TRUE);
+            //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
+            m_defaultShader.bind();
+
+            const glm::mat4 humanMvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
+            cashier->draw(m_defaultShader, mvpMatrix);
+            customer->draw(m_defaultShader, mvpMatrix);
+
+            // Sun
+            glm::mat4 sunModelMatrix = glm::translate(glm::mat4(1.0f), m_sunPosition);
+            sunModelMatrix = glm::scale(sunModelMatrix, glm::vec3(1.5f));
+
+            const glm::mat4 sunMvpMatrix = m_projectionMatrix * m_viewMatrix * sunModelMatrix;
+            const glm::mat3 sunNormalMatrix = glm::inverseTranspose(glm::mat3(sunModelMatrix));
+
+            m_colorShader.bind();
+            glUniformMatrix4fv(m_colorShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(sunMvpMatrix));
+            glUniformMatrix3fv(m_colorShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(sunNormalMatrix));
+
+            glUniform3fv(m_colorShader.getUniformLocation("cameraPos"), 1, glm::value_ptr(m_camera.cameraPos()));
+            glUniform3fv(m_colorShader.getUniformLocation("sunPos"), 1, glm::value_ptr(m_sunPosition));
+            glUniform3fv(m_colorShader.getUniformLocation("sunColor"), 1, glm::value_ptr(m_sunColor));
+
+            glm::vec4 sunDrawColor = glm::vec4(m_sunColor, 1.0f);
+            glUniform4fv(m_colorShader.getUniformLocation("baseColor"), 1, glm::value_ptr(sunDrawColor));
+
+            if (m_enableSun) {
+                m_sunMesh.draw(m_colorShader);
             }
 
             // Processes input and swaps the window buffer
@@ -275,6 +412,10 @@ private:
     Shader m_defaultShader;
     Shader m_shadowShader;
     Shader m_mirrorShader;
+    Shader m_colorShader;
+    Shader m_brickShader;
+    Shader m_textureShader;
+    // Shader m_woodShader;
 
     std::vector<GPUMesh> m_meshes;
     std::vector<glm::mat4> m_meshTransforms;
@@ -287,6 +428,44 @@ private:
     glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
     glm::mat4 m_viewMatrix = glm::lookAt(glm::vec3(-1, 1, -1), glm::vec3(0), glm::vec3(0, 1, 0));
     glm::mat4 m_modelMatrix { 1.0f };
+
+    GPUMesh m_sunMesh;
+    glm::vec3 m_sunPosition;
+    glm::vec3 m_sunColor;
+
+    GLuint m_shadowFramebuffer;
+    GLuint m_shadowTex;
+    const int SHADOWTEX_WIDTH = 2048;
+    const int SHADOWTEX_HEIGHT = 2048;
+
+    bool m_enableSun = true;
+    bool m_enableInteriorLights = true;
+
+    glm::vec3 m_pointLightPositions[1] = {
+        glm::vec3(0.0f, 4.8f, 0.0f)     // Overhead fixture position
+    };
+    glm::vec3 m_pointLightColors[1] = {
+        glm::vec3(1.0f, 0.7f, 0.9f)     // Warm light color
+    };
+    // Add spotlight directions (pointing straight down into the store)
+    glm::vec3 m_spotlightDirections[1] = {
+        glm::vec3(0.0f, -1.0f, 0.0f)    // Aimed straight down
+    };
+
+    // Define 4 interior point lights (one in center, 3 near walls/corners)
+    // glm::vec3 m_pointLightPositions[4] = {
+    //     glm::vec3(0.0f, 4.8f, 0.0f),    // Center overhead
+    //     glm::vec3(-4.0f, 4.0f, -4.0f),  // Back left corner
+    //     glm::vec3(4.0f, 4.0f, -4.0f),   // Back right corner
+    //     glm::vec3(4.0f, 4.0f, 4.0f)     // Front right corner
+    // };
+    // glm::vec3 m_pointLightColors[4] = {
+    //     glm::vec3(1.0f, 0.9f, 0.7f), // Warm white
+    //     glm::vec3(1.0f, 0.9f, 0.7f),
+    //     glm::vec3(1.0f, 0.9f, 0.7f),
+    //     glm::vec3(1.0f, 0.9f, 0.7f)
+    // };
+
 };
 
 int main()
