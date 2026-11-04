@@ -69,7 +69,8 @@ public:
 
         m_meshes.clear();
         m_meshTransforms.clear();
-        GasStation::build(m_meshes, m_meshTransforms);
+        m_meshColors.clear();
+        GasStation::build(m_meshes, m_meshTransforms, m_meshColors);
 
         try {
             ShaderBuilder defaultBuilder;
@@ -123,6 +124,8 @@ public:
 
             // ...
             glEnable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             if (m_activeCamera == 0) {
                 m_viewMatrix = m_trackball.viewMatrix();
@@ -154,6 +157,15 @@ public:
                 //Uncomment this line when you use the modelMatrix (or fragmentPosition)
                 //glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
                 glUniformMatrix3fv(m_defaultShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
+
+                GLint colorLoc = m_defaultShader.getUniformLocation( "baseColor");
+                if (colorLoc != -1 && i < m_meshColors.size()) {
+                    glUniform4fv(colorLoc, 1, glm::value_ptr(m_meshColors[i]));
+                    glUniform1i(m_defaultShader.getUniformLocation("useBaseColor"), GL_TRUE);
+                } else {
+                    glUniform1i(m_defaultShader.getUniformLocation("useBaseColor"), GL_FALSE);
+                }
+
                 if (m_meshes[i].hasTextureCoords()) {
                     m_texture.bind(GL_TEXTURE0);
                     glUniform1i(m_defaultShader.getUniformLocation("colorMap"), 0);
@@ -227,6 +239,7 @@ private:
 
     std::vector<GPUMesh> m_meshes;
     std::vector<glm::mat4> m_meshTransforms;
+    std::vector<glm::vec4> m_meshColors;
     Texture m_texture;
     bool m_useMaterial { true };
 
