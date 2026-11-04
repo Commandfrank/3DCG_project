@@ -198,7 +198,6 @@ public:
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
             glm::vec3 cameraPosition = glm::vec3(glm::inverse(m_viewMatrix)[3]);
 
-
             customerController.update(*customer, *cashier, bezierMove, timeInSeconds, deltaTime);
             
             //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
@@ -311,10 +310,13 @@ public:
             glDepthMask(GL_TRUE);
             //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
             m_defaultShader.bind();
-
             const glm::mat4 humanMvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
             cashier->draw(m_defaultShader, mvpMatrix);
             customer->draw(m_defaultShader, mvpMatrix);
+
+            if (m_mirror) {
+                m_mirror->draw(m_mirrorShader, humanMvpMatrix, cameraPosition);
+            }
 
             // Sun
             glm::mat4 sunModelMatrix = glm::translate(glm::mat4(1.0f), m_sunPosition);
