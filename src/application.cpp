@@ -8,6 +8,7 @@
 #include "objects/GasStation.h"
 #include "objects/Human.h"
 #include "objects/Customer.h"
+#include "objects/Mirror.h"
 
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
@@ -34,6 +35,7 @@ public:
     std::unique_ptr<Human> cashier;
     std::unique_ptr<Human> customer;
     Customer customerController;
+    std::unique_ptr<Mirror> m_mirror;
 
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
@@ -46,6 +48,9 @@ public:
         customer = std::make_unique<Human>();
         customer->setPosition(glm::vec3(-7.5f, 1.45f, 0.0f));
         m_camera.setUserInteraction(false);
+        m_mirror = std::make_unique<Mirror>();
+        m_mirror->setPosition(glm::vec3(-3.8f, 1.75f, -2.0f));
+        m_mirror->setScale(glm::vec3(0.5f));
 
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
@@ -99,6 +104,11 @@ public:
             //     Visual Studio: PROJECT => Generate Cache for ComputerGraphics
             //     VS Code: ctrl + shift + p => CMake: Configure => enter
             // ....
+            ShaderBuilder mirrorBuilder;
+            mirrorBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/reflection_vert.glsl");
+            mirrorBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/reflection_frag.glsl");
+            m_mirrorShader = mirrorBuilder.build();
+
         } catch (ShaderLoadingException e) {
             std::cerr << e.what() << std::endl;
         }
@@ -151,6 +161,7 @@ public:
                 m_viewMatrix = m_camera.viewMatrix();
             }
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
+            glm::vec3 cameraPosition = glm::vec3(glm::inverse(m_viewMatrix)[3]);
 
 
             customerController.update(*customer, *cashier, bezierMove, timeInSeconds, deltaTime);
@@ -158,7 +169,7 @@ public:
             //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
             cashier->draw(m_defaultShader, mvpMatrix);
             customer->draw(m_defaultShader, mvpMatrix);
-
+            if (m_mirror) m_mirror->draw(m_mirrorShader, mvpMatrix, cameraPosition);
 
 
 
@@ -263,6 +274,7 @@ private:
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
     Shader m_shadowShader;
+    Shader m_mirrorShader;
 
     std::vector<GPUMesh> m_meshes;
     std::vector<glm::mat4> m_meshTransforms;
