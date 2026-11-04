@@ -45,7 +45,7 @@ namespace GasStation {
         outColors.push_back(glm::vec4(1.0f)); // placeholder for brick
         // outColors.push_back(glm::vec4(0.9f, 0.9f, 0.9f, 1.0f));
 
-        // seethrough roof
+        // roof
         glm::mat4 roof = glm::translate(shopBase, glm::vec3(0.0f, 5.0f, 0.0f));
         roof = glm::scale(roof, glm::vec3(10.0f, 0.1f, 10.0f));
         outMeshes.push_back(GPUMesh(cubeMesh));

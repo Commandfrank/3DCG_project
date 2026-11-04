@@ -69,7 +69,7 @@ public:
 
         m_meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/dragon.obj");
 
-        // --- Initialize Shadow Map Framebuffer ---
+        // Initialize Shadow Map Framebuffer
         glGenFramebuffers(1, &m_shadowFramebuffer);
         glGenTextures(1, &m_shadowTex);
 
@@ -93,20 +93,6 @@ public:
         glReadBuffer(GL_NONE);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        // Mesh cubeMesh = PrimitiveFactory::createCube();
-        // Mesh cylinderMesh = PrimitiveFactory::createCylinder();
-        // Mesh sphereMesh = PrimitiveFactory::createSphere();
-        // m_meshes.push_back(GPUMesh(cubeMesh));
-        // m_meshes.push_back(GPUMesh(cylinderMesh));
-        // m_meshes.push_back(GPUMesh(sphereMesh));
-
-        // Store transformation matrices for each shape
-        // Cube: scale 0.3 and position at x = -0.8
-        m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(-2.7f, 0.0f, 0.0f)));
-        // Cylinder: scale 0.3 and position at x = 0.0 (center)
-        m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(0.0f, 0.0f, 2.7f)));
-        // Sphere: scale 0.3 and position at x = 0.8
-        m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(2.7f, 0.0f, 0.0f)));
 
         m_meshes.clear();
         m_meshTransforms.clear();
@@ -190,10 +176,6 @@ public:
                 ImGui::Separator();
                 ImGui::Checkbox("Enable Sun (Directional Light)", &m_enableSun);
                 ImGui::Checkbox("Enable Interior Lights (Point Lights)", &m_enableInteriorLights);
-
-                ImGui::InputInt("This is an integer input", &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
-                ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
-                ImGui::Checkbox("Use material if no texture", &m_useMaterial);
                 ImGui::End();
             }
             glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
@@ -211,7 +193,7 @@ public:
                 m_viewMatrix = m_camera.viewMatrix();
             }
 
-            customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
+            customerController.update(*customer, *cashier, bezierMove, timeInSeconds, deltaTime);
 
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
             glm::vec3 cameraPosition = glm::vec3(glm::inverse(m_viewMatrix)[3]);
@@ -223,7 +205,7 @@ public:
             cashier->draw(m_defaultShader, mvpMatrix);
             customer->draw(m_defaultShader, mvpMatrix);
             if (m_mirror) m_mirror->draw(m_mirrorShader, mvpMatrix, cameraPosition);
-            customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
+            customerController.update(*customer, *cashier, bezierMove, timeInSeconds, deltaTime);
 
             // shadow mapping setup
             glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 30.0f);
@@ -311,6 +293,9 @@ public:
                 } else if (currentShader == &m_brickShader) {
                     isMetal = false;
                     roughness = 0.5f;
+                }else if (i == 9 || i == 10) {
+                    isMetal = true;
+                    roughness = 0.1f;
                 }
 
                 glUniform1f(currentShader->getUniformLocation("isMetal"), isMetal ? 1.0f : 0.0f);
