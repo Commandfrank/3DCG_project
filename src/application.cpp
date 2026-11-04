@@ -8,6 +8,7 @@
 #include "objects/GasStation.h"
 #include "objects/Human.h"
 #include "objects/Customer.h"
+#include "objects/Mirror.h"
 
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
@@ -34,6 +35,7 @@ public:
     std::unique_ptr<Human> cashier;
     std::unique_ptr<Human> customer;
     Customer customerController;
+    std::unique_ptr<Mirror> m_mirror;
 
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
@@ -47,6 +49,9 @@ public:
         customer = std::make_unique<Human>();
         customer->setPosition(glm::vec3(-7.5f, 1.45f, 0.0f));
         m_camera.setUserInteraction(false);
+        m_mirror = std::make_unique<Mirror>();
+        m_mirror->setPosition(glm::vec3(-3.8f, 1.75f, -2.0f));
+        m_mirror->setScale(glm::vec3(0.5f));
 
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
@@ -119,6 +124,15 @@ public:
             shadowBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/shadow_frag.glsl");
             m_shadowShader = shadowBuilder.build();
 
+            // Any new shaders can be added below in similar fashion.
+            // ==> Don't forget to reconfigure CMake when you do!
+            //     Visual Studio: PROJECT => Generate Cache for ComputerGraphics
+            //     VS Code: ctrl + shift + p => CMake: Configure => enter
+            // ....
+            ShaderBuilder mirrorBuilder;
+            mirrorBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/reflection_vert.glsl");
+            mirrorBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/reflection_frag.glsl");
+            m_mirrorShader = mirrorBuilder.build();
             ShaderBuilder colorBuilder;
             colorBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
             colorBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/color_frag.glsl");
@@ -172,6 +186,7 @@ public:
                 if (ImGui::RadioButton(("First-Person"), &m_activeCamera, 1)) {
                     m_camera.setUserInteraction(true);
                 }
+                ImGui::Checkbox("Bezier Movements", &bezierMove);
                 ImGui::Separator();
                 ImGui::Checkbox("Enable Sun (Directional Light)", &m_enableSun);
                 ImGui::Checkbox("Enable Interior Lights (Point Lights)", &m_enableInteriorLights);
@@ -199,8 +214,15 @@ public:
             customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
 
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
+            glm::vec3 cameraPosition = glm::vec3(glm::inverse(m_viewMatrix)[3]);
 
 
+            customerController.update(*customer, *cashier, bezierMove, timeInSeconds, deltaTime);
+            
+            //human.movePosition(deltaTime, 3.0f, glm::vec3(1.0f, 0.0f, 1.0f));//diagonal
+            cashier->draw(m_defaultShader, mvpMatrix);
+            customer->draw(m_defaultShader, mvpMatrix);
+            if (m_mirror) m_mirror->draw(m_mirrorShader, mvpMatrix, cameraPosition);
             customerController.update(*customer, *cashier, timeInSeconds, deltaTime);
 
             // shadow mapping setup
@@ -389,6 +411,7 @@ private:
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
     Shader m_shadowShader;
+    Shader m_mirrorShader;
     Shader m_colorShader;
     Shader m_brickShader;
     Shader m_textureShader;
@@ -398,7 +421,8 @@ private:
     std::vector<glm::mat4> m_meshTransforms;
     std::vector<glm::vec4> m_meshColors;
     Texture m_texture;
-    bool m_useMaterial { true };
+    bool m_useMaterial{ true };
+    bool bezierMove { false };
 
     // Projection and view matrices for you to fill in and use
     glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);

@@ -14,6 +14,8 @@ add_executable(Master_TechDemo
     "src/texture.cpp"
 	"src/mesh.cpp"
 	"src/camera/camera.cpp"
+	"src/objects/Mirror.h"
+	"src/objects/Mirror.cpp"
 	"src/objects/Human.cpp"
 	"src/objects/Human.h"
 	"src/objects/Customer.h"
