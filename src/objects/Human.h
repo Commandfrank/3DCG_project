@@ -65,13 +65,16 @@ public:
     }
 };
 
-class Cashier {
+class Human {
 private:
     std::unique_ptr<GPUMesh> gpuCube;
     std::unique_ptr<GPUMesh> gpuSphere;
     std::unique_ptr<GPUMesh> gpuCylinder;
 
-    // Helper setup methods to keep constructor clean
+    glm::vec3 m_worldPosition{ 0.0f, 1.45f, 0.0f };
+    glm::vec3 m_worldRotation{ 0.0f };
+
+    // setup helpers to keep constructor clean
     void initMeshes();
     void buildHierarchy();
 
@@ -81,6 +84,7 @@ public:
 
     // Direct pointers to key joints for easy pose/animation access
     std::shared_ptr<BodyParts> headNode;
+    std::shared_ptr<BodyParts> neck;
 
     // Arms
     std::shared_ptr<BodyParts> upperLeftArm;
@@ -95,14 +99,21 @@ public:
     std::shared_ptr<BodyParts> lowerRightLeg;
 
     // Constructor & Destructor
-    Cashier();
-    ~Cashier() = default;
+    Human();
+    ~Human() = default;
 
     // Rendering method
     void draw(Shader& shader, const glm::mat4& mvpMatrix);
 
     // Optional pose and animation functions
     void resetPose();
+    void setPosition(glm::vec3 coords);
+    void turn(float timeInSeconds, float speed = 1.0f, float targetDegree = 90.0f);
     void waveHand(float timeInSeconds);
-    void walk(float timeInSeconds, float speed = 1.0f);
+    void walk(float timeInSeconds, float deltaTime, float animationSpeed=1.0f, float movementSpeed=0.001f);
+    void stopMoving();
+
+    //getters setters
+    glm::vec3 getPosition() const { return m_worldPosition; }
+    glm::vec3 getRotation() const { return m_worldRotation; }
 };

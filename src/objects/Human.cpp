@@ -1,13 +1,13 @@
-#include "Cashier.h"
+#include "Human.h"
 #include <glm/gtc/type_ptr.hpp>
 
 
-Cashier::Cashier() {
+Human::Human() {
     initMeshes();
     buildHierarchy();
 }
 
-void Cashier::initMeshes() {
+void Human::initMeshes() {
     Mesh cubeMesh = PrimitiveFactory::createCube();
     Mesh sphereMesh = PrimitiveFactory::createSphere(16, 16);
     Mesh cylinderMesh = PrimitiveFactory::createCylinder(16);
@@ -18,11 +18,11 @@ void Cashier::initMeshes() {
     gpuSphere = std::make_unique<GPUMesh>(sphereMesh);
 }
 
-void Cashier::buildHierarchy() {
+void Human::buildHierarchy() {
     //TORSO root 
     torsoNode = std::make_shared<BodyParts>();
     torsoNode-> gpuMesh = gpuCube.get();    
-    torsoNode-> position = glm::vec3(0.0f, 1.45f, 0.0f); // Base position above ground
+    torsoNode-> position = glm::vec3(0.0f, 0.0f, 0.0f); // local position (world)
     torsoNode-> scale = glm::vec3(0.6f, 0.8f, 0.3f);    // Torso dimensions (W, H, D)
     torsoNode-> meshOffset = glm::vec3(0.0f, 0.0f, 0.0f); // Centered on torso root
 
@@ -30,15 +30,23 @@ void Cashier::buildHierarchy() {
     float torsoWidth = torsoNode->scale.x;
     float torsoHeight = torsoNode->scale.y;
 
+    //NECK
+    neck = std::make_shared<BodyParts>();
+    neck->gpuMesh = gpuCylinder.get();
+    neck->scale = glm::vec3(0.12f, 0.25f, 0.12f);
+    // It will be positioned a bit higher than torso bcs neck
+    neck->position = glm::vec3(0.0f, torsoHeight * 0.5f + 0.1f, 0.0f);
+    torsoNode->children.push_back(neck);
+    
+
     // HEAD
     headNode = std::make_shared<BodyParts>();
-    headNode->gpuMesh = gpuSphere.get();    
-    headNode->scale = glm::vec3(0.4f, 0.4f, 0.4f);
-    // Positioned at top of torso
-    headNode->position = glm::vec3(0.0f, torsoHeight * 0.5f + 0.2f, 0.0f);
-    torsoNode->children.push_back(headNode);
+    headNode->gpuMesh = gpuSphere.get();
+    headNode->scale = glm::vec3(0.4f, 0.45f, 0.4f);
+    headNode->position = glm::vec3(0.0f, 0.2f, 0.0f); // Positioned above neck
+    neck->children.push_back(headNode);
 
-    
+
     // LEFT ARM
     // upper left (pivot at shoulder)
     upperLeftArm = std::make_shared<BodyParts>();
@@ -111,14 +119,20 @@ void Cashier::buildHierarchy() {
     upperRightLeg->children.push_back(lowerRightLeg);
 }
 
-void Cashier::draw(Shader& shader, const glm::mat4& viewProjMatrix) {
+void Human::draw(Shader& shader, const glm::mat4& viewProjMatrix) {
     if (torsoNode) {
-        glm::mat4 identity(1.0f);
-        torsoNode->draw(shader, identity, viewProjMatrix);
+        // model matrix from torso position and rotation
+        glm::mat4 modelMatrix(1.0f);
+        modelMatrix = glm::translate(modelMatrix, m_worldPosition);
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(m_worldRotation.z), glm::vec3(0, 0, 1));
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(m_worldRotation.y), glm::vec3(0, 1, 0));
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(m_worldRotation.x), glm::vec3(1, 0, 0));
+
+        torsoNode->draw(shader, modelMatrix, viewProjMatrix);
     }
 }
 
-void Cashier::resetPose() {
+void Human::resetPose() {
     // Reset all joint rotations to 0 degrees
     upperLeftArm->rotation = glm::vec3(0.0f);
     lowerLeftArm->rotation = glm::vec3(0.0f);
@@ -133,7 +147,42 @@ void Cashier::resetPose() {
     headNode->rotation = glm::vec3(0.0f);
 }
 
-void Cashier::waveHand(float timeInSeconds) {
+
+void Human::turn(float deltaTime, float speed, float targetDegree) {
+    if (speed == 0.0f) {
+        m_worldRotation = m_worldRotation + targetDegree;
+        return;
+    }
+
+    targetDegree = std::fmod(targetDegree, 360.0f);
+    if (targetDegree < 0.0f) targetDegree += 360.0f;
+
+    m_worldRotation.y = std::fmod(m_worldRotation.y, 360.0f);
+    if (m_worldRotation.y < 0.0f) m_worldRotation.y += 360.0f;
+
+    float angleDiff = targetDegree - m_worldRotation.y;
+
+    if (angleDiff > 180.0f) angleDiff -= 360.0f;
+    else if (angleDiff < -180.0f) angleDiff += 360.0f;
+
+    if (std::abs(angleDiff) < 0.01f) {
+        m_worldRotation.y = targetDegree;
+        return;
+    }
+    
+    float step = speed * deltaTime;
+    if (std::abs(angleDiff) <= step) m_worldRotation.y = targetDegree;
+    else m_worldRotation.y += (angleDiff > 0.0f) ? step : -step;
+
+    m_worldRotation.y = std::fmod(m_worldRotation.y, 360.0f);
+    if (m_worldRotation.y < 0.0f) m_worldRotation.y += 360.0f;
+}
+
+void Human::setPosition(glm::vec3 coords) {
+    m_worldPosition = coords;
+}
+
+void Human::waveHand(float timeInSeconds) {
     // Raise upper left arm outwards
     upperLeftArm->rotation.z = 120.0f;
 
@@ -141,8 +190,8 @@ void Cashier::waveHand(float timeInSeconds) {
     lowerLeftArm->rotation.z = 30.0f + std::sin(timeInSeconds * 6.0f) * 25.0f;
 }
 
-void Cashier::walk(float timeInSeconds, float speed) {
-    float t = timeInSeconds * speed * 4.0f;
+void Human::walk(float timeInSeconds, float deltaTime, float animationSpeed, float movementSpeed) {
+    float t = timeInSeconds * animationSpeed * 4.0f;
 
     // Hip rotations (X-axis pitch, opposite limbs out of phase)
     float legAngle = std::sin(t) * 30.0f;
@@ -160,4 +209,13 @@ void Cashier::walk(float timeInSeconds, float speed) {
     // Slight elbow bend
     lowerLeftArm->rotation.x = -15.0f;
     lowerRightArm->rotation.x = -15.0f;
+
+    //actually move
+    float angleRadians = glm::radians(m_worldRotation.y);
+    glm::vec3 forward = glm::vec3(std::sin(angleRadians), 0.0f, std::cos(angleRadians));
+    m_worldPosition += forward * movementSpeed * deltaTime;
+}
+
+void Human::stopMoving() {
+    return;
 }
