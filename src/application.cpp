@@ -4,6 +4,7 @@
 #include "texture.h"
 #include "camera/camera.h"
 #include "objects/PrimitiveFactory.h"
+#include "objects/Cashier.h"
 
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
 // Can't wait for modules to fix this stuff...
@@ -27,12 +28,14 @@ DISABLE_WARNINGS_POP()
 
 class Application {
 public:
+    std::unique_ptr<Cashier> cashier;
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
         , m_camera {&m_window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
         , m_trackball(&m_window, glm::radians(50.0f))
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
     {
+        cashier = std::make_unique<Cashier>();
         m_camera.setUserInteraction(false);
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
@@ -95,6 +98,8 @@ public:
             // Put your real-time logic and rendering in here
             m_window.updateInput();
 
+            float timeInSeconds = static_cast<float>(glfwGetTime());
+
             // Use ImGui for easy input/output of ints, floats, strings, etc...
             if (m_showUI) {
                 ImGui::SetNextWindowSize(ImVec2(350,150), ImGuiCond_FirstUseEver);
@@ -127,6 +132,10 @@ public:
                 m_viewMatrix = m_camera.viewMatrix();
             }
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
+
+            //cashier->walk(timeInSeconds, 1.0f);
+            cashier->waveHand(timeInSeconds);
+            cashier->draw(m_defaultShader, mvpMatrix);
             // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
             // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
             const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
