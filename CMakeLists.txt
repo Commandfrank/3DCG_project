@@ -18,6 +18,8 @@ add_executable(Master_TechDemo
 	"src/objects/Cashier.h"
 	"src/objects/PrimitiveFactory.cpp"	
 	"src/objects/PrimitiveFactory.h"
+	"src/objects/GasStation.cpp"
+	"src/objects/GasStation.h"
 	"src/Mesh.cpp"
 	"src/Mesh.h"
 

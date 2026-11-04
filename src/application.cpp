@@ -1,9 +1,11 @@
 //#include "Image.h"
 #include <framework/trackball.h>
 #include "mesh.h"
+
 #include "texture.h"
 #include "camera/camera.h"
 #include "objects/PrimitiveFactory.h"
+#include "objects/GasStation.h"
 #include "objects/Cashier.h"
 
 // Always include window first (because it includes glfw, which includes GL which needs to be included AFTER glew).
@@ -31,8 +33,8 @@ public:
     std::unique_ptr<Cashier> cashier;
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
-        , m_camera {&m_window, glm::vec3(1.2f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
-        , m_trackball(&m_window, glm::radians(50.0f))
+        , m_camera {&m_window, glm::vec3(0.0f, 1.1f, 0.9f), -glm::vec3(1.2f, 1.1f, 0.9f) }  // Default camera position for now
+        , m_trackball(&m_window, glm::radians(50.0f), 18.0f, glm::radians(35.0f), glm::radians(45.0f))
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
     {
         cashier = std::make_unique<Cashier>();
@@ -53,21 +55,25 @@ public:
 
         m_meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/dragon.obj");
 
-        Mesh cubeMesh = PrimitiveFactory::createCube();
-        Mesh cylinderMesh = PrimitiveFactory::createCylinder();
-        Mesh sphereMesh = PrimitiveFactory::createSphere();
-        m_meshes.push_back(GPUMesh(cubeMesh));
-        m_meshes.push_back(GPUMesh(cylinderMesh));
-        m_meshes.push_back(GPUMesh(sphereMesh));
+        // Mesh cubeMesh = PrimitiveFactory::createCube();
+        // Mesh cylinderMesh = PrimitiveFactory::createCylinder();
+        // Mesh sphereMesh = PrimitiveFactory::createSphere();
+        // m_meshes.push_back(GPUMesh(cubeMesh));
+        // m_meshes.push_back(GPUMesh(cylinderMesh));
+        // m_meshes.push_back(GPUMesh(sphereMesh));
 
         // Store transformation matrices for each shape
-    // Cube: scale 0.3 and position at x = -0.8
+        // Cube: scale 0.3 and position at x = -0.8
         m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(-2.7f, 0.0f, 0.0f)));
         // Cylinder: scale 0.3 and position at x = 0.0 (center)
         m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(0.0f, 0.0f, 2.7f)));
         // Sphere: scale 0.3 and position at x = 0.8
         m_meshTransforms.push_back(glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.3f)), glm::vec3(2.7f, 0.0f, 0.0f)));
 
+        m_meshes.clear();
+        m_meshTransforms.clear();
+        m_meshColors.clear();
+        GasStation::build(m_meshes, m_meshTransforms, m_meshColors);
 
         try {
             ShaderBuilder defaultBuilder;
@@ -123,6 +129,8 @@ public:
 
             // ...
             glEnable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             if (m_activeCamera == 0) {
                 m_viewMatrix = m_trackball.viewMatrix();
@@ -131,6 +139,9 @@ public:
                 m_camera.updateInput();
                 m_viewMatrix = m_camera.viewMatrix();
             }
+
+
+            // const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
             const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * m_modelMatrix;
 
             //cashier->walk(timeInSeconds, 1.0f);
@@ -138,13 +149,13 @@ public:
             cashier->draw(m_defaultShader, mvpMatrix);
             // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
             // https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html
-            const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
+            // const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
             for (size_t i = 0; i < m_meshes.size(); ++i) {
-                glm::mat4 modelMatrix;
+                glm::mat4 modelMatrix = m_modelMatrix * m_meshTransforms[i];
                 
                 // First mesh is the dragon - use default model matrix
-                if (i == 0) modelMatrix = m_modelMatrix;
-                else modelMatrix = m_meshTransforms[i - 1];
+                // if (i == 0) modelMatrix = m_modelMatrix;
+                // else modelMatrix = m_meshTransforms[i - 1];
 
                 const glm::mat4 mvpMatrix = m_projectionMatrix * m_viewMatrix * modelMatrix;
                 // Normals should be transformed differently than positions (ignoring translations + dealing with scaling):
@@ -156,6 +167,15 @@ public:
                 //Uncomment this line when you use the modelMatrix (or fragmentPosition)
                 //glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
                 glUniformMatrix3fv(m_defaultShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
+
+                GLint colorLoc = m_defaultShader.getUniformLocation( "baseColor");
+                if (colorLoc != -1 && i < m_meshColors.size()) {
+                    glUniform4fv(colorLoc, 1, glm::value_ptr(m_meshColors[i]));
+                    glUniform1i(m_defaultShader.getUniformLocation("useBaseColor"), GL_TRUE);
+                } else {
+                    glUniform1i(m_defaultShader.getUniformLocation("useBaseColor"), GL_FALSE);
+                }
+
                 if (m_meshes[i].hasTextureCoords()) {
                     m_texture.bind(GL_TEXTURE0);
                     glUniform1i(m_defaultShader.getUniformLocation("colorMap"), 0);
@@ -229,6 +249,7 @@ private:
 
     std::vector<GPUMesh> m_meshes;
     std::vector<glm::mat4> m_meshTransforms;
+    std::vector<glm::vec4> m_meshColors;
     Texture m_texture;
     bool m_useMaterial { true };
 
